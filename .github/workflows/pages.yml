@@ -1,4 +1,5 @@
 name: GitHub Pages (предпросмотр)
+# Публикует site/ на https://vaetn.github.io/goldwar-site/ (с префиксом пути и noindex)
 on:
   push:
     branches: [main]
