@@ -470,3 +470,5 @@ body.has-hero .top,body.has-hero.scrolled .top,.top{position:sticky;top:0;left:a
 @media (max-width:720px){.top .wrap{height:64px}.nav.open{top:64px}.hero{min-height:calc(100svh - 64px)}.hero-grid{padding-top:72px}}
 .hero-media video,.hero-media img{object-position:60% 0%}
 .wiki-quiet{color:var(--muted)!important;opacity:.7}
+
+.home-faq h2{margin-bottom:24px}

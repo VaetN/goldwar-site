@@ -953,7 +953,8 @@ for nid, g in GW.items():
     if g["minions"]:
         secs.append({"id": "minions", "title": "Свита", "text": "Появляется вместе с боссом.",
                      "html": '<div class="chips">' + "".join(f'<span class="chip" style="padding-left:12px">{esc(GW_NAMES.get(m) or NPC.get(m, {}).get("name") or "#"+str(m))} ×{a if a == b else f"{a}–{b}"}</span>' for m, a, b in g["minions"]) + "</div>"})
-    hl = gw_highlight(g["drop"])
+    hl = [r for r in gw_highlight(g["drop"] + [(0, 0, 0, 0)][:0]) if r[0] not in (8056, 19909)] or []
+    hl = [r for r in sorted([r for r in g["drop"] if r[0] not in (57, 8056, 19909) and gw_value(r[0]) > 0], key=lambda r: (-gw_value(r[0]), -r[3]))][:3]
     best = [gw_iname(r[0]) for r in hl]
     bestc = [f"{gw_iname(r[0])} ({pct(r[3])})" for r in hl]
     key = next((r for r in g["drop"] if r[0] == 8056), None); box = next((r for r in g["drop"] if r[0] == 19909), None)
@@ -963,7 +964,7 @@ for nid, g in GW.items():
     elif twin: intro += f' В файлах сервера есть и <a href="{gw_url(twin)}">версия Goldwar</a> этого босса с другим дропом.'
     if key: intro += f" Роняет Золотой ключ: {qty(key[1], key[2])} шт. с шансом {pct(key[3])}, ключом открывают Золотой сундук."
     if box: intro += f" С шансом {pct(box[3])} падает сам Золотой сундук."
-    if bestc and not (key and len(bestc) == 1): intro += " Ценное в дропе: " + ", ".join(bestc[:3]) + "."
+    if bestc: intro += " Ценное в дропе: " + ", ".join(bestc[:3]) + "."
     intro += f" HP {fmt(round(g['hp']))}" + (f", опыт {fmt(g['exp'])} и {fmt(g['sp'])} SP за убийство" if g["exp"] else "") + "."
     if g["minions"]: intro += f" Ходит со свитой: {sum(m[2] for m in g['minions'])} {plural(sum(m[2] for m in g['minions']),'охранник','охранника','охранников')}."
     faq = None
