@@ -1,0 +1,31 @@
+{% extends "wiki_base.html" %}
+{% from "macros.html" import crumbs %}
+{% block main %}
+<section class="wiki-hero{% if site.has_wikiart %} art-wiki{% endif %}">
+  <div class="wrap">
+    {{ crumbs([("Goldwar","/"),("База знаний","/wiki/"),("Классы","")]) }}
+    <h1>Классы Lineage&nbsp;2 Interlude</h1>
+    <p class="lead">{{ intro }}</p>
+  </div>
+</section>
+<section class="page-sec">
+  <div class="wrap">
+    <nav class="races" aria-label="Расы">{% for r in races %}<a href="#{{ r.slug }}">{% if r.img %}<img src="{{ r.img }}" alt="" width="32" height="32">{% endif %}{{ r.ru }}</a>{% endfor %}</nav>
+    {% for r in races %}
+    <div class="race-block" id="{{ r.slug }}">
+      <div class="race-head">{% if r.img %}<img src="{{ r.img }}" alt="{{ r.ru }} – портрет расы" width="112" height="112" loading="lazy">{% endif %}<div><h2>{{ r.ru }}</h2><p>{{ r.text }}</p></div></div>
+      <div class="tree">
+        {% for b in r.branches %}
+        <div class="branch">
+          <h3><img src="/static/i/{{ b.icon }}" alt="" width="28" height="28" style="width:28px;height:28px;border-radius:4px">{{ b.name }}<small>{{ b.kind }}</small></h3>
+          <ul>
+            {% for c in b["items"] %}<li><a class="cls l{{ c.prof }}{% if c.prof==3 %} sub{% endif %}" href="{{ c.url }}"><img src="/static/i/{{ c.icon }}" alt="" width="32" height="32" loading="lazy"><div><b>{{ c.ru }}</b><span>{{ c.en }} · {{ c.prof_ru }}</span></div></a></li>{% endfor %}
+          </ul>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

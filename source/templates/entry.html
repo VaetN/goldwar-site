@@ -1,0 +1,45 @@
+{% extends "wiki_base.html" %}
+{% from "macros.html" import crumbs %}
+{% block main %}
+<section class="entry-hero{% if art %} art-{{ art }}{% endif %}">
+  <div class="wrap">
+    {{ crumbs(bc) }}
+    <header class="entry-head">
+      {% if portrait %}<img class="entry-portrait" src="{{ portrait }}" alt="" width="120" height="120">{% elif icon %}<div class="entry-icon"><img src="/static/i/{{ icon }}" alt="{{ h1 }}" width="64" height="64"></div>{% endif %}
+      <div>
+        <h1>{{ h1 }}</h1>
+        <div class="entry-sub">{{ sub|safe }}</div>
+      </div>
+    </header>
+    <p class="intro">{{ intro|safe }}</p>
+    {% if toc|default(sections|length > 2) %}<nav class="toc" aria-label="На странице">{% for s in sections %}<a href="#{{ s.id }}">{{ s.title }}</a>{% endfor %}{% if faq %}<a href="#faq">Вопросы</a>{% endif %}</nav>{% endif %}
+  </div>
+</section>
+<div class="wrap entry">
+  <article>
+    {% for s in sections %}
+      <section class="ent-sec" id="{{ s.id }}">
+        <h2>{{ s.title }}</h2>
+        {% if s.text %}<p class="muted">{{ s.text|safe }}</p>{% endif %}
+        {{ s.html|safe }}
+      </section>
+    {% endfor %}
+    {% if faq %}
+      <section class="ent-sec" id="faq">
+        <h2>Частые вопросы</h2>
+        <div class="faq">{% for q in faq %}<details{% if loop.first %} open{% endif %}><summary>{{ q[0] }}</summary><p>{{ q[1] }}</p></details>{% endfor %}</div>
+      </section>
+    {% endif %}
+    <p class="updated">Данные: файлы клиента и сервера Interlude. Обновлено {{ site.updated_ru }}.</p>
+  </article>
+  <aside class="side">
+    {% for c in side %}
+    <div class="gwin"><div class="gwin-t">{{ c.title }}</div>
+      {% if c.props %}<dl class="props">{% for k,v in c.props %}<dt>{{ k }}</dt><dd>{{ v|safe }}</dd>{% endfor %}</dl>{% endif %}
+      {% if c.html %}{{ c.html|safe }}{% endif %}
+      {% if c.note %}<p class="note">{{ c.note }}</p>{% endif %}
+    </div>
+    {% endfor %}
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block main %}
+<section class="hero">
+  <div class="hero-media" aria-hidden="true">
+    {% if site.has_video %}<video autoplay muted loop playsinline preload="auto"{% if site.has_heroimg %} poster="/static/media/hero.jpg"{% endif %}><source src="/static/media/hero.mp4" type="video/mp4"></video>{% elif site.has_heroimg %}<img src="/static/media/hero.jpg" alt="" fetchpriority="high">{% else %}<div class="hero-fallback"></div>{% endif %}
+  </div>
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <h1><span class="h1-big">Goldwar x50</span><span class="h1-sub">сервер Lineage&nbsp;2 Interlude</span></h1>
+      <p class="hero-lead">Работает с 3 ноября. Своя экономика на золоте: сундуки падают с монстров, ключи к ним дают рейд-боссы.</p>
+      <div class="hero-cta">
+        <a class="btn btn-gold" href="{{ site.acp_register }}" rel="nofollow">Создать аккаунт</a>
+        <a class="link-under" href="/files/">Скачать клиент</a>
+      </div>
+    </div>
+    <aside class="notice" aria-label="Стартовый ивент">
+      {% if site.has_coin %}<img class="notice-coin" src="/static/media/goldcoin.webp" alt="" width="72" height="72">{% endif %}
+      <p class="notice-kicker">Стартовый ивент</p>
+      <p class="notice-sum num">1&nbsp;200 Gold Coins</p>
+      <p class="notice-text">первому, кто поднимет Goldwar Weapon с дропа. Сделайте скриншот и пришлите его в <a href="{{ site.tg_event }}" target="_blank" rel="noopener">Telegram</a> или <a href="{{ site.ds_event }}" target="_blank" rel="noopener">Discord</a>.</p>
+    </aside>
+  </div>
+</section>
+
+<section class="chest" id="chest">
+  <div class="chest-art">
+    {% if site.has_chest %}<img src="/static/media/chest.jpg" alt="Золотой сундук Goldwar, полный монет" width="900" height="900" loading="lazy">{% endif %}
+  </div>
+  <div class="chest-copy">
+    <h2>Золотой сундук</h2>
+    <p class="chest-lead">Главная механика сервера. Сундук падает с монстров в отдельных локациях, но без ключа он бесполезен.</p>
+    <dl class="chest-rules">
+      <dt><img src="/static/i/{{ chest_icons[0] }}" alt="" width="32" height="32" loading="lazy">Где искать</dt>
+      <dd>Монстры в отдельных локациях. Какие именно – подскажет канал сервера, а что ещё с них падает – раздел <a href="/drop/">«Дроп»</a>.</dd>
+      <dt><img src="/static/i/{{ chest_icons[1] }}" alt="" width="32" height="32" loading="lazy">Чем открыть</dt>
+      <dd>Золотым ключом. Его роняют <a href="/bosses/">рейд-боссы</a>, а кто не хочет ждать босса, покупает ключ за Gold Coins.</dd>
+      <dt><img src="/static/i/{{ chest_icons[2] }}" alt="" width="32" height="32" loading="lazy">Что внутри</dt>
+      <dd>Содержимое меняется, поэтому сундук на этой неделе и на следующей даёт разное.</dd>
+    </dl>
+  </div>
+</section>
+
+<section class="sec start-sec">
+  <div class="wrap start">
+    <h2>Три шага до первого входа</h2>
+    <ol class="start-list">
+      <li><span class="rn">I</span><div><h3>Аккаунт</h3><p>Регистрация на acp.goldwar.net, нужна только почта.</p></div><a class="btn btn-gold btn-sm" href="{{ site.acp_register }}" rel="nofollow">Зарегистрироваться</a></li>
+      <li><span class="rn">II</span><div><h3>Клиент</h3><p>Архив игры и порядок установки.</p></div><a class="link-under" href="/files/">Файлы</a></li>
+      <li><span class="rn">III</span><div><h3>Охота</h3><p>Посмотрите, где фармить на своём уровне и что там падает.</p></div><a class="link-under" href="/drop/">Дроп</a></li>
+    </ol>
+  </div>
+</section>
+
+<section class="sec codex-sec">
+  <div class="wrap">
+    <div class="codex-head">
+      <h2>Боссы и дроп Goldwar</h2>
+      <p>Данные взяты из файлов сервера: только те монстры и боссы, у которых на Goldwar включён дроп, и их настоящие шансы. Наведите на предмет – появятся его характеристики.</p>
+    </div>
+    <ol class="codex">
+      {% for r in index %}<li><a href="{{ r.href }}"><span class="cx-name">{{ r.title }}</span><span class="cx-lead" aria-hidden="true"></span><span class="cx-n num">{{ r.count }}</span><span class="cx-desc">{{ r.desc }}</span><span class="cx-icons" aria-hidden="true">{% for i in r.icons %}<img src="/static/i/{{ i }}" alt="" width="28" height="28" loading="lazy">{% endfor %}</span></a></li>{% endfor %}
+    </ol>
+  </div>
+</section>
+
+<section class="raid{% if site.has_raidart %} raid-art{% endif %}">
+  <div class="wrap">
+    <div class="raid-head"><h2>Рейд-боссы</h2><p>Отсюда берутся Золотые ключи. У каждого босса в базе – место, уровень и полный дроп.</p></div>
+    <ol class="raid-list">
+      {% for b in bosses %}<li><a href="{{ b.url }}"><span class="rl num">{{ b.level }}</span><span class="rn2">{{ b.name }}</span><span class="rw">{{ b.where }}</span></a></li>{% endfor %}
+    </ol>
+    <a class="link-under" href="/bosses/">Все {{ stats.raid }} рейд-боссов</a>&nbsp;&nbsp;&nbsp;<a class="link-under" href="/epic/">Эпик-боссы</a>
+  </div>
+</section>
+
+<section class="sec channels">
+  <div class="wrap channels-in">
+    <h2>Анонсы, ответы администрации, поиск клана</h2>
+    <ul>{% for s in site.socials %}<li><a href="{{ s.href }}" rel="noopener" target="_blank">{{ s.icon|safe }}<span>{{ s.title }}</span></a></li>{% endfor %}</ul>
+  </div>
+</section>
+<div class="mbar" aria-label="Быстрые действия"><a class="btn btn-gold" href="{{ site.acp_register }}" rel="nofollow">Регистрация</a><a class="btn btn-dark" href="/files/">Скачать</a></div>
+{% endblock %}

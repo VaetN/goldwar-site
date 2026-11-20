@@ -1,0 +1,25 @@
+{% extends "wiki_base.html" %}
+{% from "macros.html" import crumbs %}
+{% block main %}
+<section class="wiki-hero{% if art %} art-{{ art }}{% endif %}" style="padding-bottom:40px">
+  <div class="wrap">
+    {{ crumbs(bc) }}
+    <h1>{{ h1 }}</h1>
+    <p class="lead">{{ intro|safe }}</p>
+  </div>
+</section>
+<section class="page-sec" style="padding-top:40px">
+  <div class="wrap">
+    {% if filters %}<nav class="filters" aria-label="Разделы">{% for f in filters %}<a href="{{ f[1] }}"{% if f[2] %} aria-current="page"{% endif %}>{{ f[0] }}</a>{% endfor %}</nav>{% endif %}
+    {% if index %}<ol class="codex wiki-codex">
+      {% for r in index %}<li><a href="{{ r.href }}"><span class="cx-name">{{ r.title }}</span><span class="cx-lead" aria-hidden="true"></span><span class="cx-n num">{{ r.count }}</span><span class="cx-desc">{{ r.desc }}</span><span class="cx-icons" aria-hidden="true">{% for i in r.icons %}<img src="/static/i/{{ i }}" alt="" width="28" height="28" loading="lazy">{% endfor %}</span></a></li>{% endfor %}
+    </ol>{% endif %}
+    {% for g in groups %}
+      {% if g.title %}<div class="list-head"><h2 style="font-size:2rem" id="{{ g.id }}">{{ g.title }}</h2>{% if loop.first and filter_box %}<input type="search" placeholder="Фильтр по названию" data-filter="tbl-{{ loop.index }}" aria-label="Фильтр по названию">{% endif %}</div>
+      {% elif filter_box %}<div class="list-head"><span class="muted">{{ g.count }}</span><input type="search" placeholder="Фильтр по названию" data-filter="tbl-{{ loop.index }}" aria-label="Фильтр по названию"></div>{% endif %}
+      <div class="tbl-wrap" style="margin-bottom:48px">{{ g.html|safe }}</div>
+    {% endfor %}
+    {% if outro %}<div style="max-width:72ch;color:var(--text-2)">{{ outro|safe }}</div>{% endif %}
+  </div>
+</section>
+{% endblock %}

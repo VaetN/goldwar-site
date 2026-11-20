@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block main %}
+<section class="wiki-hero">
+  <div class="wrap">
+    <nav class="crumbs" aria-label="Навигация"><a href="/">Goldwar</a><span aria-hidden="true">/</span><span>{{ h1 }}</span></nav>
+    <h1>{{ h1 }}</h1>
+    <p class="lead">{{ intro|safe }}</p>
+  </div>
+</section>
+<section class="page-sec">
+  <div class="wrap" style="max-width:900px;margin-left:max(0px,calc((100% - var(--wrap))/2))">{{ body|safe }}</div>
+</section>
+{% endblock %}

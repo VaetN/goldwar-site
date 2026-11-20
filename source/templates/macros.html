@@ -1,0 +1,1 @@
+{% macro crumbs(items) %}<nav class="crumbs" aria-label="Навигация">{% for c in items %}{% if not loop.last %}<a href="{{ c[1] }}">{{ c[0] }}</a><span aria-hidden="true">/</span>{% else %}<span>{{ c[0] }}</span>{% endif %}{% endfor %}</nav>{% endmacro %}

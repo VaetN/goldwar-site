@@ -1,0 +1,19 @@
+{% extends "wiki_base.html" %}
+{% from "macros.html" import crumbs %}
+{% block main %}
+<section class="wiki-hero{% if site.has_wikivideo %} wv{% elif site.has_wikiart %} art-wiki{% endif %}">
+  {% if site.has_wikivideo %}<div class="wv-media" aria-hidden="true"><video autoplay muted loop playsinline preload="auto" poster="/static/media/wiki-poster.jpg"><source src="/static/media/wiki.mp4" type="video/mp4"></video></div>{% endif %}
+  <div class="wrap">
+    {{ crumbs([("Goldwar","/"),("База знаний","/wiki/")]) }}
+    <h1>База знаний Lineage&nbsp;2 Interlude</h1>
+    <p class="lead">Классы с умениями по уровням, оружие и броня всех грейдов, монстры с дропом и спойлом, рейд-боссы, зоны охоты и квесты. Данные взяты из файлов игры, а не переписаны с форумов.</p>
+  </div>
+</section>
+<section class="page-sec">
+  <div class="wrap">
+    <ol class="codex wiki-codex">
+      {% for r in index %}<li><a href="{{ r.href }}"><span class="cx-name">{{ r.title }}</span><span class="cx-lead" aria-hidden="true"></span><span class="cx-n num">{{ r.count }}</span><span class="cx-desc">{{ r.desc }}</span><span class="cx-icons" aria-hidden="true">{% for i in r.icons %}<img src="/static/i/{{ i }}" alt="" width="28" height="28" loading="lazy">{% endfor %}</span></a></li>{% endfor %}
+    </ol>
+  </div>
+</section>
+{% endblock %}
