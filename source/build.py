@@ -843,7 +843,9 @@ def gw_icon(iid):
     i = gw_i(iid)
     if i: return i.get("iconFile")
     if iid not in CNAME: return None
-    if CNAME[iid][1].lower() == "goldwar": return "goldwar_weapon.png"
+    _jw = "jewel_" + CNAME[iid][0].split()[-1].lower() + ".png"
+    if gw_ckind(iid) in ("серьга", "кольцо", "ожерелье") and os.path.exists(os.path.join(CUSTOM_ICONS, _jw)): return _jw
+    if CNAME[iid][1].lower() == "goldwar" and gw_ckind(iid) in ("оружие", "щит"): return "goldwar_weapon.png"
     j = _NAMEIDX.get(CNAME[iid][0].lower())
     if j and j.get("iconFile") and "monster" not in j["iconFile"]: return j["iconFile"]
     n = CNAME[iid][0].lower()
