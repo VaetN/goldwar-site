@@ -1,19 +1,31 @@
 # Goldwar
 
-> Сервер Lineage 2 на хрониках Interlude (C6) с рейтами x50, PvP-концепцией и системой Золотых сундуков. Сайт включает базу знаний по Interlude.
+> Goldwar – сервер Lineage 2 на хрониках Interlude (C6) с рейтами x50. Главная механика – Золотые сундуки: сундук падает с монстров, ключ к нему – с рейд-боссов. Данные о боссах и дропе на сайте взяты из файлов сервера Goldwar.
 
-## Разделы
+## Факты
 
-- [База знаний](https://goldwar.net/wiki/): обзор базы
-- [Классы](https://goldwar.net/wiki/classes/): 89 классов с умениями по уровням
-- [Предметы](https://goldwar.net/wiki/items/weapons/sword/): 5 198 предметов с дропом, спойлом и крафтом
-- [Монстры](https://goldwar.net/wiki/monsters/): 1 687 монстров по уровням
-- [Рейд-боссы](https://goldwar.net/wiki/raid-bosses/): 218 боссов
-- [Зоны охоты](https://goldwar.net/wiki/zones/)
-- [Квесты](https://goldwar.net/wiki/quests/)
+- Хроники: Interlude (C6), рейты x50
+- Золотой ключ: 50 рейд-боссов 76–80 уровня, 1–2 шт., шанс 100%
+- Золотой сундук (Golden Box): Vampire Adept, Vampire Magister, Vampire Soldier, Vampire Warlord, Vampire Warrior (77 ур., Cursed Village), шанс 6%
+- Оружие Goldwar: 16 видов, падает с 53 рейд- и эпик-боссов
+- Регистрация и личный кабинет: https://acp.goldwar.net/
 
-## Игра
+## Сервер
 
-- Регистрация: https://acp.goldwar.net/register/
-- Файлы: https://goldwar.net/files/
-- Telegram: https://t.me/GoldwarChannel
+- [Рейд-боссы](https://goldwar.net/bosses/): уровни, места, свита, дроп с шансами
+- [Эпик-боссы](https://goldwar.net/epic/): Queen Ant, Core, Orfen, Zaken, Baium, Antharas, Valakas
+- [Монстры и дроп](https://goldwar.net/drop/): 355 монстров по уровням
+- [Где выбить предмет](https://goldwar.net/drop/items/): 107 предметов и кто их роняет
+- [Поддержка](https://goldwar.net/support/): Telegram, Discord, личный кабинет
+
+## Справочник по Interlude
+
+- [База знаний](https://goldwar.net/wiki/): классы, предметы, монстры, зоны и квесты стандартного Interlude (базовые шансы, не сервера)
+
+## Каналы
+
+- Telegram-канал: https://t.me/GoldwarChannel
+- Чат в Telegram: https://t.me/GoldwarChat
+- Discord: https://discord.gg/QmESSAQJM
+- TikTok: https://www.tiktok.com/@goldwar_official
+- Instagram: https://www.instagram.com/goldwar.net_l2

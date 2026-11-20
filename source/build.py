@@ -257,6 +257,10 @@ def qty(mn, mx):
 def bc_ld(bc):
     return {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
         {"@type": "ListItem", "position": k + 1, "name": n, **({"item": BASE + u} if u else {})} for k, (n, u) in enumerate(bc)]}
+def faq_block(faq, title="Частые вопросы"):
+    return (f'<h2 style="font-size:2rem;margin:8px 0 16px">{title}</h2><div class="faq">' +
+            "".join(f'<details{" open" if n == 0 else ""}><summary>{html.escape(q)}</summary><p>{a}</p></details>' for n, (q, a) in enumerate(faq)) + "</div>")
+def faq_plain(faq): return [(q, re.sub(r"<[^>]+>", "", a)) for q, a in faq]
 def faq_ld(faq):
     return {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
         {"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}} for q, a in faq]}
@@ -314,12 +318,17 @@ def auto_art(path, ctx):
     return want if want and ARTS.get(want) else None
 def render(path, tpl, meta, jsonld=(), **ctx):
     t = env.get_template(tpl)
+    meta = dict(meta)
+    if len(meta["title"]) > 60 and meta["title"].endswith(" | Goldwar"): meta["title"] = meta["title"][:-10]
+    d0 = re.sub(r"\s+", " ", meta["description"]).strip()
+    if len(d0) > 160: d0 = d0[:157].rsplit(" ", 1)[0].rstrip(",.;:–") + "…"
+    meta["description"] = d0
     ctx["art"] = auto_art(path, ctx)
     out = t.render(site=SITE, path=path, meta=meta, jsonld=list(jsonld), **ctx)
     d = os.path.join(OUT, path.strip("/"))
     os.makedirs(d, exist_ok=True)
     with open(os.path.join(d, "index.html"), "w") as f: f.write(out)
-    if not meta.get("noindex"): PAGES.append(path)
+    if not meta.get("noindex") and meta.get("canonical") in (None, path, BASE + path): PAGES.append(path)
     TITLES[meta["title"]].append(path); DESCS[meta["description"]].append(path)
 TITLES = collections.defaultdict(list); DESCS = collections.defaultdict(list)
 
@@ -522,12 +531,16 @@ for iid in sorted(PUB):
     bc = [("Goldwar", "/"), ("База знаний", "/wiki/"), ("Предметы", "/wiki/items/"), (name, None)]
     tail = {"weapon": f"{kind.lower()} {gtxt}" if g != "none" else kind.lower(), "armor": f"{kind.split(',')[0].lower()} {gtxt}" if g != "none" else kind.split(',')[0].lower()}.get(i["type"], kind.lower())
     t = clip_title(f"{name} – {tail}") if len(f"{name} – {tail}") <= 60 else (clip_title(name + " – Lineage 2") if len(name) <= 45 else name)
+    if len(t) < 38 and len(f"{name} – {tail} в Interlude | Goldwar") <= 60: t = f"{name} – {tail} в Interlude | Goldwar"
     if dr: dd = f'Падает с {len(dr)} {plural(len(dr),"монстра","монстров","монстров")}, лучший шанс у {NPC[sorted(dr, key=lambda x:-x[1][3])[0][0]]["name"]}.'
     elif rc: dd = f'Крафт: {len(rc["ingredients"])} {plural(len(rc["ingredients"]),"ингредиент","ингредиента","ингредиентов")}, шанс {rc["successRate"]}%.'
     elif SOLD.get(iid): dd = "Продаётся у NPC, цена и торговцы на странице."
-    else: dd = "Характеристики и откуда берётся."
+    else: dd = "Источник в открытых данных не указан: обычно ивент, квест или обмен у NPC."
     statline = ", ".join(f"{k} {v}" for k, v in stats[:3])
     desc = f'{name}: {kind.lower()} {gtxt}. {statline + ". " if statline else ""}{dd}'
+    if len(desc) < 115 and i.get("weight") and "Вес" not in desc: desc += f' Вес {fmt(i["weight"])}.'
+    if len(desc) < 115 and i.get("price"): desc += f' Продаётся в магазин за {fmt(i["price"] // 2)} аден.'
+    if len(desc) < 115: desc += " Данные хроник Interlude (C6)."
     if len(desc) > 165: desc = desc[:162].rsplit(" ", 1)[0] + "…"
     side = [{"title": "Характеристики", "props": [("Тип", kind), ("Грейд", gbadge(g))] + stats, "note": f"ID в игре: {iid}"}]
     variant = PRIMARY.get(iid, iid) != iid
@@ -539,7 +552,9 @@ for iid in sorted(PUB):
     if not variant: SEARCH.append([name, path, icon(i.get("iconFile")), kind.split(",")[0].lower()])
 
 # --- списки предметов ---
+LISTED = set()
 def items_table(lst, mode):
+    LISTED.update(i["id"] for i in lst)
     rows = []
     for i in lst:
         if mode == "weapon": rows.append([item_cell(i["id"], item_kind(i)), gbadge(i["grade"]), fmt(i.get("pAtk")), fmt(i.get("mAtk")), fmt(i.get("pAtkSpd")) if i.get("pAtkSpd") else "–", fmt(i.get("weight"))])
@@ -602,6 +617,16 @@ for title, sl, types in ETC_CATS:
            [bc_ld(bc)], section="wiki", wsec="items", bc=bc, h1=f"{title} Interlude",
            intro=f"{len(lst)} позиций. Колонка «Источников дропа» показывает, со скольких монстров предмет падает или спойлится.",
            filters=[(a, b, b == p) for a, b in efilters], groups=[{"title": None, "count": f"{len(lst)} позиций", "id": "all", "html": items_table(lst, "etc")}], filter_box=True)
+# прочие предметы, не попавшие ни в один список (аксессуары, рубашки, питомцы, наёмники, приманки…)
+other = sorted([ITEM[x] for x in PUB if PRIMARY.get(x, x) == x and x not in LISTED], key=lambda i: (item_kind(i), i["name"]))
+_og = collections.OrderedDict()
+for i in other: _og.setdefault(item_kind(i).split(",")[0], []).append(i)
+bc = [("Goldwar", "/"), ("База знаний", "/wiki/"), ("Предметы", "/wiki/items/"), ("Другие предметы", None)]
+render("/wiki/items/other/", "list.html", {"title": "Другие предметы Lineage 2 Interlude – аксессуары, питомцы",
+       "description": f"{len(other)} предметов Interlude вне основных разделов: аксессуары на голову, рубашки, снаряжение питомцев, приказы наёмникам, приманки и прочее."},
+       [bc_ld(bc)], section="wiki", wsec="items", bc=bc, h1="Другие предметы Interlude",
+       intro=f"{len(other)} предметов, которые не относятся к оружию, броне и расходникам: украшения на голову, рубашки, вещи для питомцев, приказы наёмникам замка, приманки для рыбалки.",
+       filters=None, groups=[{"title": f"{k} – {len(v)}", "id": f"o{n}", "html": items_table(v, "etc")} for n, (k, v) in enumerate(_og.items())], filter_box=True)
 # сеты
 set_rows = []
 for st in sorted(sets, key=lambda s: GORDER.index(ITEM.get(s["pieces"].get("chest") or 0, {"grade": "none"})["grade"]) if s["pieces"].get("chest") in ITEM else 9):
@@ -629,6 +654,7 @@ hub = [
     {"title": "Сеты", "href": "/wiki/items/sets/", "cnt": f"{len(sets)} сетов", "cls": "", "text": "Полные комплекты брони и их состав.", "icons": pick_icons(lambda i: i["bodypart"] == "fullarmor" and i["grade"] == "s")},
     {"title": "Бижутерия", "href": "/wiki/items/jewelry/", "cnt": f"{len(jew)} шт.", "cls": "", "text": "Серьги, кольца, ожерелья и эпическая бижутерия.", "icons": pick_icons(lambda i: i["bodypart"] == "neck" and i["grade"] in ("a", "s"))},
     {"title": "Материалы и рецепты", "href": "/wiki/items/materials/", "cnt": fmt(sum(1 for i in items if i["id"] in PUB and i.get("etcItemType") in ("material","recipe"))), "cls": "", "text": "Всё для крафта: что падает, что крафтится и из чего.", "icons": pick_icons(lambda i: i.get("etcItemType") == "material")},
+    {"title": "Другие предметы", "href": "/wiki/items/other/", "cnt": f"{len(other)} шт.", "cls": "", "text": "Аксессуары, рубашки, питомцы, наёмники, приманки.", "icons": pick_icons(lambda i: i["type"] == "armor" and i["bodypart"] in ("hair", "hairall", "dhair"))},
     {"title": "Свитки и зелья", "href": "/wiki/items/scrolls/", "cnt": fmt(sum(1 for i in items if i["id"] in PUB and i.get("etcItemType") in ("scroll","potion","elixir","herb","scrl_enchant_wp","scrl_enchant_am","bless_scrl_enchant_wp","bless_scrl_enchant_am"))), "cls": "", "text": "Заточка, телепорт, баночки и эликсиры.", "icons": pick_icons(lambda i: i.get("etcItemType") in ("scroll", "potion"))},
 ]
 bc = [("Goldwar", "/"), ("База знаний", "/wiki/"), ("Предметы", None)]
@@ -705,7 +731,7 @@ for n in mobs:
     bc = [("Goldwar", "/"), ("База знаний", "/wiki/"), (sec_name, "/wiki/raid-bosses/" if n["npcType"] != "Monster" else "/wiki/monsters/"), (name, None)]
     t = clip_title(f"{name} – {'рейд-босс' if n['npcType']!='Monster' else 'монстр'} {lvl} ур., дроп")
     best_item = next((ITEM[r[0]]["name"] for r in reg if r[0] in ITEM and r[0] != 57), None)
-    desc = f"{name}, {typ.lower()} {lvl} уровня" + (f", {ZONE[zid]['name']}" if zid else "") + f". HP {fmt(round(n['hp']))}, {len(reg)} предм. в дропе" + (f", {len(sp)} в спойле" if sp else "") + (f", в том числе {best_item}." if best_item else ".")
+    desc = f"{name}, {typ.lower()} {lvl} уровня" + (f", {ZONE[zid]['name']}" if zid else "") + f". HP {fmt(round(n['hp']))}, {len(reg)} предм. в дропе" + (f", {len(sp)} в спойле" if sp else "") + (f", в том числе {best_item}." if best_item else ".") + f" Опыт {fmt(n['exp'])}. Базовые шансы Interlude."
     if len(desc) > 165: desc = desc[:162].rsplit(" ", 1)[0] + "…"
     lds = [bc_ld(bc)] + ([faq_ld(faq)] if faq else [])
     mvar = MPRIMARY.get(nid, nid) != nid
@@ -732,6 +758,7 @@ for z in sorted(zones, key=lambda z: (z["minLevel"] or 0, z["name"])):
     ms = sorted(ZONE_MOBS.get(z["id"], []), key=lambda x: NPC[x]["level"])
     if not ms: continue
     lv = [NPC[x]["level"] for x in ms]
+    lvs = f"{min(lv)}–{max(lv)}" if min(lv) != max(lv) else str(min(lv))
     reg = region_of(z["x"], z["y"])
     zrows.append([f'<a class="it" href="{zurl(z["id"])}"><span>{esc(z["name"])}<small>{esc(reg or "")}</small></span></a>', f'<span class="lvl-pill">{min(lv)}–{max(lv)}</span>', str(len(ms)),
                   str(sum(1 for x in ms if NPC[x]["npcType"] != "Monster"))])
@@ -739,15 +766,15 @@ for z in sorted(zones, key=lambda z: (z["minLevel"] or 0, z["name"])):
     path = zurl(z["id"]); name = z["name"]
     bc = [("Goldwar", "/"), ("База знаний", "/wiki/"), ("Зоны охоты", "/wiki/zones/"), (name, None)]
     nb = sum(1 for x in ms if NPC[x]["npcType"] != "Monster")
-    intro = f"{name} – зона охоты для персонажей {min(lv)}–{max(lv)} уровня" + (f" рядом с городом {reg}" if reg else "") + f". Здесь {len(ms)} {plural(len(ms),'вид','вида','видов')} монстров" + (f", из них {nb} {plural(nb,'босс','босса','боссов')}" if nb else "") + "."
+    intro = f"{name} – зона охоты для персонажей {lvs} уровня" + (f" в регионе {reg}" if reg else "") + f". Здесь {len(ms)} {plural(len(ms),'вид','вида','видов')} монстров" + (f", из них {nb} {plural(nb,'босс','босса','боссов')}" if nb else "") + "."
     spoilers = [x for x in ms if DROP.get(x, ([], []))[1]]
     if spoilers: intro += f" Спойл есть у {len(spoilers)} из них – гномам сюда."
-    render(path, "entry.html", {"title": clip_title(f"{name} – зона охоты {min(lv)}–{max(lv)} ур."),
-                                "description": f"{name}: {len(ms)} видов монстров {min(lv)}–{max(lv)} уровня" + (f" у {reg}" if reg else "") + ". Опыт, спойл и ссылки на дроп каждого монстра."},
+    render(path, "entry.html", {"title": clip_title(f"{name} – зона охоты {lvs} ур."),
+                                "description": f"{name}: {len(ms)} {plural(len(ms),'вид','вида','видов')} монстров {lvs} уровня" + (f", регион {reg}" if reg else "") + f". Опыт, спойл и дроп каждого монстра{', ' + str(nb) + ' ' + plural(nb,'босс','босса','боссов') if nb else ''}. Базовые данные Interlude."},
            [bc_ld(bc)], section="wiki", wsec="zones", bc=bc, icon=None, h1=name,
-           sub=f'<span class="lvl-pill">{min(lv)}–{max(lv)} ур.</span> <span>{esc(reg or "")}</span>', intro=intro,
+           sub=f'<span class="lvl-pill">{lvs} ур.</span> <span>{esc(reg or "")}</span>', intro=intro,
            sections=[{"id": "mobs", "title": f"Монстры в {name}", "html": '<div class="tbl-wrap">' + table(["Монстр", "Ур.", "Тип", "Опыт>", "Спойл>"], rows) + "</div>"}],
-           faq=None, side=[{"title": "Зона", "props": [("Уровни", f"{min(lv)}–{max(lv)}"), ("Видов монстров", str(len(ms))), ("Боссов", str(nb)), ("Город рядом", esc(reg or "–"))]}])
+           faq=None, side=[{"title": "Зона", "props": [("Уровни", lvs), ("Видов монстров", str(len(ms))), ("Боссов", str(nb)), ("Город рядом", esc(reg or "–"))]}])
     SEARCH.append([name, path, None, "зона охоты"])
 bc = [("Goldwar", "/"), ("База знаний", "/wiki/"), ("Зоны охоты", None)]
 render("/wiki/zones/", "list.html", {"title": "Зоны охоты Lineage 2 Interlude по уровням | Goldwar",
@@ -790,7 +817,7 @@ for q in sorted(quests, key=lambda q: (q.get("levelMin") or 0, q["id"])):
     bc = [("Goldwar", "/"), ("База знаний", "/wiki/"), ("Квесты", "/wiki/quests/"), (name, None)]
     _qt = f"Квест {name} – прохождение, награда" if QDUP[name] == 1 else f"Квест {name} – {starts[0] if starts else q['id']}"
     render(path, "entry.html", {"title": clip_title(_qt),
-                                "description": (f"Квест {name} с {q.get('levelMin') or 1} уровня" + (f", NPC {starts[0]}" if starts else "") + (f". Награда: {reward_txt}" if reward_txt else "") + ". Кого убить и с кем говорить.")[:165]},
+                                "description": (f"Квест {name} с {q.get('levelMin') or 1} уровня" + (f", NPC {starts[0]}" if starts else "") + (f". Награда: {reward_txt}" if reward_txt else "") + ". Кого убить, с кем говорить и что получите – по шагам. Хроники Interlude.")[:165]},
            [bc_ld(bc)], section="wiki", wsec="quests", bc=bc, icon=icon(ITEM[rw_items[0]["itemId"]]["iconFile"]) if rw_items else None, h1=f"Квест {name}",
            sub=f'<span class="lvl-pill">с {q.get("levelMin") or 1} ур.</span>' + (" <span>повторяемый</span>" if q.get("repeatable") else ""), intro=intro, sections=secs, faq=None,
            side=[{"title": "Квест", "props": [("Уровень", str(q.get("levelMin") or 1)), ("Повторяемый", "да" if q.get("repeatable") else "нет"), ("Стартовый NPC", esc(starts[0]) if starts else "–"), ("NPC по ходу", str(len(talk))), ("Монстров убить", str(len(kills)))]}])
@@ -853,11 +880,12 @@ def gw_icon(iid):
         if k in n: return f
     return None
 def gi_url(iid): return f"/drop/item/{iid}-{slug(gw_iname(iid))}/"
+def gw_is_gwweapon(iid): return iid in CNAME and CNAME[iid][1].lower() == "goldwar" and gw_ckind(iid) in ("оружие", "щит")
 def gw_ckind(iid):
     n = CNAME.get(iid, ("", "", ""))
     t = (n[0] + " " + n[2]).lower()
     for k, v in (("shield", "щит"), ("earring", "серьга"), ("ring of", "кольцо"), ("necklace", "ожерелье"), ("crown", "корона"),
-                 ("box", "сундук"), ("weapon", "оружие"), ("bow", "оружие"), ("sword", "оружие"), ("edge", "оружие")):
+                 ("box", "сундук"), ("coin", "монета"), ("staff", "оружие"), ("weapon", "оружие"), ("bow", "оружие"), ("sword", "оружие"), ("edge", "оружие")):
         if k in t: return v
     return "предмет сервера"
 _EFF = (("critical attack", "крит"), ("atk. speed", "скорость атаки"), ("casting speed", "скорость каста"), ("accuracy", "точность"),
@@ -870,6 +898,7 @@ def gw_item_cell(iid, extra=""):
     i = gw_i(iid); ic = icon(gw_icon(iid))
     g = f' {gbadge(i["grade"])}' if i and i["grade"] != "none" else ""
     tip = f' data-i="{iid}"' if iid in PUB and i else ""
+    if iid == 57: return f'<span class="it"><img src="/static/i/{ic}" alt="" width="32" height="32" loading="lazy"><span>{esc(gw_iname(iid))}{("<small>"+extra+"</small>") if extra else ""}</span></span>'
     return f'<a class="it" href="{gi_url(iid)}"{tip}><img src="/static/i/{ic}" alt="" width="32" height="32" loading="lazy"><span>{esc(gw_iname(iid))}{g}{("<small>"+extra+"</small>") if extra else ""}</span></a>'
 def gw_npc_cell(nid, extra=""):
     return f'<a class="it" href="{gw_url(nid)}"><span>{esc(gw_dname(nid))}{("<small>"+esc(extra)+"</small>") if extra else ""}</span></a>'
@@ -888,6 +917,27 @@ for _ids in _gg.values():
     _p = min(_ids, key=lambda x: (0 if GW_SPAWN.get(x) else 1, x))
     for x in _ids: GW_PRIMARY[x] = _p
 # страницы NPC
+GW_SPECIAL = {8056: 100, 19909: 95}
+def gw_value(iid):
+    if iid in GW_SPECIAL: return GW_SPECIAL[iid]
+    if iid in CNAME and gw_custom_item(iid): return 90
+    i = ITEM.get(iid)
+    if not i: return 10
+    if i["type"] in ("weapon", "armor") and i["grade"] in ("s", "a"): return 80
+    if i.get("etcItemType") in ("bless_scrl_enchant_wp", "bless_scrl_enchant_am", "scrl_enchant_wp", "scrl_enchant_am"): return 60
+    if i["type"] in ("weapon", "armor"): return 50
+    if i["name"].startswith(("Secret Book", "Recipe")): return 40
+    if i["name"].endswith(("Mantra",)) or iid in (57, 4042): return 0
+    return 20
+def gw_highlight(drop):
+    c = [r for r in drop if r[0] != 57 and gw_value(r[0]) > 0]
+    return sorted(c, key=lambda r: (-gw_value(r[0]), -r[3]))[:4]
+GW_TWIN = {}
+_bn = collections.defaultdict(list)
+for k_, g_ in GW.items():
+    if GW_PRIMARY.get(k_, k_) == k_ and g_["type"] != "Monster": _bn[g_["name"]].append(k_)
+for _ids in _bn.values():
+    if len(_ids) == 2: GW_TWIN[_ids[0]] = _ids[1]; GW_TWIN[_ids[1]] = _ids[0]
 _namecount = collections.Counter(g_["name"] for g_ in GW.values() if GW_PRIMARY.get(g_["id"], g_["id"]) == g_["id"])
 for nid, g in GW.items():
     name, lvl, typ = g["name"], g["level"], GW_TYPE[g["type"]]
@@ -902,17 +952,28 @@ for nid, g in GW.items():
                      "html": '<div class="tbl-wrap">' + table(["Предмет", "Кол-во>", "Шанс>"], [[gw_item_cell(r[0]), qty(r[1], r[2]), f'<span class="chance spoil">{pct(r[3])}</span>'] for r in g["spoil"]]) + "</div>"})
     if g["minions"]:
         secs.append({"id": "minions", "title": "Свита", "text": "Появляется вместе с боссом.",
-                     "html": '<div class="chips">' + "".join(f'<span class="chip" style="padding-left:12px">{esc(GW_NAMES.get(m, "#"+str(m)))} ×{a if a == b else f"{a}–{b}"}</span>' for m, a, b in g["minions"]) + "</div>"})
-    best = [gw_iname(r[0]) for r in g["drop"] if r[0] != 57][:3]
-    intro = f"{name} – {typ.lower()} {lvl} уровня на сервере Goldwar." + (f" Место: {place}." if place else "")
-    intro += f" HP {fmt(round(g['hp']))}" + (f", за убийство {fmt(g['exp'])} опыта и {fmt(g['sp'])} SP" if g["exp"] else "") + "."
-    if g["drop"]: intro += f" В дропе {len(g['drop'])} {plural(len(g['drop']),'позиция','позиции','позиций')}" + (f", главное – {', '.join(best)}" if best else "") + "."
-    if g["minions"]: intro += f" Ходит со свитой из {sum(m[2] for m in g['minions'])} существ."
+                     "html": '<div class="chips">' + "".join(f'<span class="chip" style="padding-left:12px">{esc(GW_NAMES.get(m) or NPC.get(m, {}).get("name") or "#"+str(m))} ×{a if a == b else f"{a}–{b}"}</span>' for m, a, b in g["minions"]) + "</div>"})
+    hl = gw_highlight(g["drop"])
+    best = [gw_iname(r[0]) for r in hl]
+    bestc = [f"{gw_iname(r[0])} ({pct(r[3])})" for r in hl]
+    key = next((r for r in g["drop"] if r[0] == 8056), None); box = next((r for r in g["drop"] if r[0] == 19909), None)
+    twin = GW_TWIN.get(nid)
+    intro = f"{name} – {typ.lower()} {lvl} уровня на сервере Goldwar." + (f" Стоит в локации {place}." if place else "")
+    if twin and gw_custom(nid): intro += f' Это версия босса, изменённая для Goldwar: дроп отличается от стандартного <a href="{gw_url(twin)}">{esc(GW[twin]["name"])}</a>.'
+    elif twin: intro += f' В файлах сервера есть и <a href="{gw_url(twin)}">версия Goldwar</a> этого босса с другим дропом.'
+    if key: intro += f" Роняет Золотой ключ: {qty(key[1], key[2])} шт. с шансом {pct(key[3])}, ключом открывают Золотой сундук."
+    if box: intro += f" С шансом {pct(box[3])} падает сам Золотой сундук."
+    if bestc and not (key and len(bestc) == 1): intro += " Ценное в дропе: " + ", ".join(bestc[:3]) + "."
+    intro += f" HP {fmt(round(g['hp']))}" + (f", опыт {fmt(g['exp'])} и {fmt(g['sp'])} SP за убийство" if g["exp"] else "") + "."
+    if g["minions"]: intro += f" Ходит со свитой: {sum(m[2] for m in g['minions'])} {plural(sum(m[2] for m in g['minions']),'охранник','охранника','охранников')}."
     faq = None
     if g["type"] != "Monster":
-        faq = [(f"Где найти {name}?", f"{name} появляется {('в локации ' + place) if place else 'в своей локации'}. Уровень – {lvl}."),
-               (f"Что падает с {name} на Goldwar?", (f"Главное в дропе: {', '.join(best)}. Полный список с шансами – в таблице на этой странице." if best else "Полный список с шансами – в таблице на этой странице.")),
-               (f"Сколько HP у {name}?", f"{fmt(round(g['hp']))} HP, физ. защита {fmt(round(g['pDef']))}, маг. защита {fmt(round(g['mDef']))}.")]
+        faq = []
+        if place: faq.append((f"Где найти {name}?", f"В локации {place}. Уровень босса – {lvl}, рядом лучше иметь группу того же уровня."))
+        if g["type"] == "RaidBoss":
+            faq.append((f"Падает ли с {name} Золотой ключ?", f"Да: {qty(key[1], key[2])} шт. с шансом {pct(key[3])}. Один ключ открывает один Золотой сундук." if key else "Нет, в файлах сервера у этого босса нет Золотого ключа. Ключи дают другие рейд-боссы 76–80 уровня."))
+        if bestc: faq.append((f"Что ценного падает с {name}?", ", ".join(bestc) + ". Остальной дроп с количеством и шансами – в таблице на этой странице."))
+        faq.append((f"Сколько HP у {name}?", f"{fmt(round(g['hp']))} HP, физ. защита {fmt(round(g['pDef']))}, маг. защита {fmt(round(g['mDef']))}."))
     side = [{"title": "Параметры", "props": [("Уровень", str(lvl)), ("Тип", typ), ("HP", fmt(round(g["hp"]))), ("MP", fmt(round(g["mp"]))),
              ("Физ. атака", fmt(round(g["pAtk"]))), ("Физ. защита", fmt(round(g["pDef"]))), ("Маг. атака", fmt(round(g["mAtk"]))), ("Маг. защита", fmt(round(g["mDef"]))),
              ("Опыт", fmt(g["exp"])), ("SP", fmt(g["sp"])), ("Агрессивный", "да" if g["aggro"] else "нет")], "note": f"ID на сервере: {nid}"}]
@@ -921,7 +982,9 @@ for nid, g in GW.items():
     tl = {"RaidBoss": "рейд-босс", "GrandBoss": "эпик-босс", "Monster": "монстр"}[g["type"]]
     t = f"{name} – {tl} {lvl} ур., дроп на Goldwar"
     if len(t) > 60: t = clip_title(f"{name} – {tl}, дроп")
-    desc = (f"{name}, {tl} {lvl} уровня на Goldwar" + (f" ({place})" if place else "") + f". HP {fmt(round(g['hp']))}, {len(g['drop'])} {plural(len(g['drop']),'позиция','позиции','позиций')} в дропе" + (f", {len(g['spoil'])} в спойле" if g["spoil"] else "") + (f": {', '.join(best[:2])}." if best else "."))[:165]
+    _dl = ([f"Золотой ключ {pct(key[3])}"] if key else []) + ([f"Золотой сундук {pct(box[3])}"] if box else []) + [x for x in bestc if not x.startswith(("Golden Key", "Golden Box"))]
+    if not _dl: _dl = [f"{gw_iname(r[0])} {pct(r[3])}" for r in sorted(g["drop"] + g["spoil"], key=lambda r: -r[3]) if r[0] != 57][:3]
+    desc = f"{name}, {tl} {lvl} ур. на Goldwar" + (f", {place}" if place else "") + ". " + (("Дроп: " + ", ".join(_dl[:3]) + ". ") if _dl else "") + f"HP {fmt(round(g['hp']))}" + (f", опыт {fmt(g['exp'])}" if g["exp"] else "") + (f", {len(g['spoil'])} предм. в спойле" if g["spoil"] else "") + ". Шансы из файлов сервера."
     _var = GW_PRIMARY[nid] != nid
     if _var: t = clip_title(f"{name} {lvl} ур. (ID {nid})"); desc = (f"Вариант ID {nid}. " + desc)[:165]
     render(gw_url(nid), "entry.html", {"title": t, "description": desc, "og_type": "article", "noindex": _var, "canonical": gw_url(GW_PRIMARY[nid]) if _var else None}, [bc_ld(bc)] + ([faq_ld(faq)] if faq else []),
@@ -936,15 +999,29 @@ for kind, path, h1, wsec, tl in (("RaidBoss", "/bosses/", "Рейд-боссы G
     lst = gw_list(kind)
     rows = [[gw_npc_cell(g["id"], gw_place(g["id"])), f'<span class="lvl-pill">{g["level"]}</span>', fmt(round(g["hp"])), str(len(g["drop"])), str(sum(m[2] for m in g["minions"])) if g["minions"] else "–"] for g in lst]
     bc = [("Goldwar", "/"), (h1.replace(" Goldwar", ""), None)]
+    _keys = [g for g in lst if any(r[0] == 8056 for r in g["drop"])]
+    _twins = sum(1 for g in lst if g["id"] in GW_TWIN) // 2
+    _gwi = [(g, r) for g in lst for r in g["drop"] if gw_is_gwweapon(r[0])]
+    _jw = [(g, r) for g in lst for r in g["drop"] if gw_ckind(r[0]) in ("серьга", "кольцо", "ожерелье") and r[0] in CNAME and gw_custom_item(r[0])]
+    def _rng(xs): return f"{pct(min(xs))}" if min(xs) == max(xs) else f"от {pct(min(xs))} до {pct(max(xs))}"
     if kind == "RaidBoss":
+        faq = [("Где взять Золотой ключ?", f"С рейд-боссов: ключ есть в дропе у {len(_keys)} из {len(lst)} боссов {min(g['level'] for g in _keys)}–{max(g['level'] for g in _keys)} уровня, 1–2 шт. с шансом 100%. Один ключ открывает один <a href=\"/drop/item/19909-golden-box/\">Золотой сундук</a>."),
+               ("Что значит «(Goldwar)» в названии босса?", f"В файлах сервера {_twins} {plural(_twins,'босс','босса','боссов')} записаны дважды: стандартная версия Interlude и версия, изменённая для Goldwar. У второй свой дроп, поэтому у каждой версии отдельная страница."),
+               ("Какое оружие Goldwar падает с рейд-боссов?", f"{len({r[0] for g, r in _gwi})} {plural(len({r[0] for g, r in _gwi}),'предмет','предмета','предметов')} серии Goldwar: оружие и щиты с особыми свойствами. Шанс {_rng([r[3] for g, r in _gwi])}. Полный список – в разделе <a href=\"/drop/items/\">«Где выбить предмет»</a>."),
+               ("Какая бижутерия падает с рейд-боссов?", f"{len({r[0] for g, r in _jw})} {plural(len({r[0] for g, r in _jw}),'украшение','украшения','украшений')}, названных по именам боссов: серьги, кольца и ожерелья, например Earring of Kandra и Necklace of Naga. Шанс {_rng([r[3] for g, r in _jw])}.")]
         meta = {"title": "Рейд-боссы Goldwar x50 – дроп, уровни, места",
-                "description": f"Все {len(lst)} рейд-боссов сервера Goldwar от {lst[0]['level']} до {lst[-1]['level']} уровня: где стоят, HP, свита и полный дроп с шансами из файлов сервера."}
-        intro = f"{len(lst)} {plural(len(lst),'босс','босса','боссов')} от {lst[0]['level']} до {lst[-1]['level']} уровня, включая собственных боссов сервера. С рейд-боссов падают Золотые ключи к сундукам. Дроп и шансы – из файлов сервера."
+                "description": f"{len(lst)} рейд-боссов Goldwar {lst[0]['level']}–{lst[-1]['level']} уровня. Кто роняет Золотой ключ, оружие Goldwar и именную бижутерию, где стоят, HP и шансы."}
+        intro = f"На Goldwar {len(lst)} {plural(len(lst),'рейд-босс','рейд-босса','рейд-боссов')} от {lst[0]['level']} до {lst[-1]['level']} уровня. {len(_keys)} из них роняют Золотой ключ – 1–2 шт. с шансом 100%. Пометка «(Goldwar)» – версия босса с изменённым дропом. Уровень, HP, свита и все шансы взяты из файлов сервера."
     else:
-        meta = {"title": "Эпик-боссы Goldwar x50 – Антарас, Валакас, Баюм",
-                "description": f"{len(lst)} эпик-боссов Goldwar: Queen Ant, Core, Orfen, Zaken, Baium, Antharas, Valakas. Уровень, HP, свита и полный дроп с шансами."}
-        intro = f"{len(lst)} эпических боссов – главные цели кланов. У каждого: уровень, HP, свита и дроп с шансами из файлов сервера Goldwar."
-    render(path, "list.html", meta, [bc_ld(bc)], bc=bc, h1=h1, intro=intro, filters=None,
+        meta = {"title": "Эпик-боссы Goldwar x50 – Antharas, Valakas, Baium",
+                "description": f"{len(lst)} эпик-боссов Goldwar: Queen Ant, Core, Orfen, Zaken, Baium, Antharas, Valakas. HP, свита, эпическая бижутерия и оружие Goldwar с шансами."}
+        _hp = sorted(lst, key=lambda g: g["hp"])
+        _ej = sorted({gw_iname(r[0]) for g in lst for r in g["drop"] if (ITEM.get(r[0]) or {}).get("bodypart") in ("rear;lear", "neck", "rfinger;lfinger") and r[3] >= 100})
+        intro = f"{len(lst)} эпик-боссов {lst[0]['level']} уровня: {', '.join(g['name'] for g in sorted(lst, key=lambda g: g['hp']))}. HP от {fmt(round(_hp[0]['hp']))} у {_hp[0]['name']} до {fmt(round(_hp[-1]['hp']))} у {_hp[-1]['name']}. Дроп и шансы – из файлов сервера Goldwar."
+        faq = [("Какая эпическая бижутерия падает на Goldwar?", f"{', '.join(_ej)} – каждая со своего босса с шансом 100%."),
+               ("Падает ли с эпик-боссов оружие Goldwar?", f"Да, {len({r[0] for g, r in _gwi})} {plural(len({r[0] for g, r in _gwi}),'предмет','предмета','предметов')} серии Goldwar, шанс {_rng([r[3] for g, r in _gwi])}. Какое оружие с какого босса – на странице босса." if _gwi else "Нет, оружие Goldwar дают рейд-боссы."),
+               ("Какой эпик-босс самый живучий?", f"{_hp[-1]['name']}: {fmt(round(_hp[-1]['hp']))} HP. Следом {_hp[-2]['name']} – {fmt(round(_hp[-2]['hp']))} HP.")]
+    render(path, "list.html", meta, [bc_ld(bc), faq_ld(faq_plain(faq))], bc=bc, h1=h1, intro=intro, filters=None, outro=faq_block(faq),
            groups=[{"title": None, "count": f"{len(lst)} {tl}", "id": "l", "html": table(["Босс", "Ур.", "HP>", "Предметов в дропе>", "Свита>"], rows)}],
            filter_box=True, art="raid" if ARTS.get("raid") else None, **gw_common(section=wsec, wsec=wsec))
 
@@ -953,19 +1030,34 @@ mons = gw_list("Monster")
 bands = [(a, b, [g for g in mons if a <= g["level"] <= b]) for a, b in GBANDS]
 bands = [x for x in bands if x[2]]
 bf = [(f"{a}–{b} ур.", f"/drop/{a}-{b}/") for a, b, _ in bands]
+def _band_intro(a, b, lst):
+    zc = collections.Counter(gw_where(g["id"])[0] for g in lst if gw_where(g["id"])[0])
+    sp = sum(1 for g in lst if g["spoil"])
+    top = max(lst, key=lambda g: g["exp"] / max(g["hp"], 1))
+    t = f"{len(lst)} {plural(len(lst),'монстр','монстра','монстров')} {a}–{b} уровня с дропом на Goldwar."
+    if zc: t += " Больше всего их в локациях " + ", ".join(f"{z} ({n})" for z, n in zc.most_common(3)) + "."
+    t += f" Спойл есть у {sp}." if sp else ""
+    t += f' Лучшее соотношение опыта к HP у <a href="{gw_url(top["id"])}">{esc(gw_dname(top["id"]))}</a>: {fmt(top["exp"])} опыта при {fmt(round(top["hp"]))} HP.'
+    return t
 for a, b, lst in bands:
     p = f"/drop/{a}-{b}/"
     rows = [[gw_npc_cell(g["id"], gw_place(g["id"])), f'<span class="lvl-pill">{g["level"]}</span>', fmt(round(g["hp"])), fmt(g["exp"]), str(len(g["drop"])), "да" if g["spoil"] else "–"] for g in lst]
     bc = [("Goldwar", "/"), ("Монстры и дроп", "/drop/"), (f"{a}–{b} уровень", None)]
     render(p, "list.html", {"title": clip_title(f"Монстры {a}–{b} уровня на Goldwar – дроп"),
            "description": f"{len(lst)} монстров {a}–{b} уровня с дропом на сервере Goldwar: где стоят, HP, опыт, сколько позиций в дропе и есть ли спойл."},
-           [bc_ld(bc)], bc=bc, h1=f"Монстры {a}–{b} уровня", intro=f"{len(lst)} монстров, у которых на Goldwar включён дроп. Под названием – локация.",
+           [bc_ld(bc)], bc=bc, h1=f"Монстры {a}–{b} уровня", intro=_band_intro(a, b, lst),
            filters=[(x, y, y == p) for x, y in bf], groups=[{"title": None, "count": f"{len(lst)} монстров", "id": "m", "html": table(["Монстр", "Ур.", "HP>", "Опыт>", "Дроп>", "Спойл>"], rows)}],
            filter_box=True, art="monsters" if ARTS.get("monsters") else None, **gw_common(section="drop", wsec="drop"))
 bc = [("Goldwar", "/"), ("Монстры и дроп", None)]
+_box = [g for g in mons if any(r[0] == 19909 for r in g["drop"])]
+_spm = sum(1 for g in mons if g["spoil"])
+_dfaq = [("Где выбить Золотой сундук?", f"Сундук падает с {len(_box)} {plural(len(_box),'монстра','монстров','монстров')} {min(g['level'] for g in _box)} уровня в локации {gw_where(_box[0]['id'])[0] or ''}: " + ", ".join(f'<a href=\"{gw_url(g["id"])}\">{esc(g["name"])}</a>' for g in _box) + f". Шанс {pct(next(r[3] for r in _box[0]['drop'] if r[0] == 19909))} с каждого. Открывается Золотым ключом с рейд-боссов.") if _box else None,
+         ("Откуда взяты шансы дропа?", "Из файла NPC сервера Goldwar. Шанс в таблицах – тот, что прописан в файле, без пересчёта и округления до «примерно». Монстры, у которых дроп на сервере отключён, на сайт не попадают."),
+         ("Чем дроп отличается от спойла?", f"Дроп падает при убийстве монстра. Спойл забирают гномы Scavenger и Bounty Hunter: метят монстра умением Spoil, а после убийства собирают добычу умением Sweeper. У спойла своя таблица шансов. Спойл есть у {_spm} из {len(mons)} монстров.")]
+_dfaq = [x for x in _dfaq if x]
 render("/drop/", "list.html", {"title": "Монстры и дроп Goldwar x50 – где фармить",
-       "description": f"{len(mons)} монстров с дропом на сервере Goldwar по уровням. Что падает, где стоят, сколько опыта. Поиск предмета по дропу."},
-       [bc_ld(bc)], bc=bc, h1="Монстры и дроп", intro=f"На Goldwar дроп включён у {len(mons)} {plural(len(mons),'монстра','монстров','монстров')}. Выберите уровень или найдите предмет – покажем, кто его роняет.",
+       "description": f"{len(mons)} монстров с дропом на Goldwar по уровням: где стоят, что падает, шансы и спойл из файлов сервера. Где выбить Золотой сундук."},
+       [bc_ld(bc), faq_ld(faq_plain(_dfaq))], bc=bc, h1="Монстры и дроп", outro=faq_block(_dfaq), intro=f"На Goldwar дроп включён у {len(mons)} {plural(len(mons),'монстра','монстров','монстров')} от {min(g['level'] for g in mons)} до {max(g['level'] for g in mons)} уровня, спойл – у {_spm}. Больше всего монстров на {GBANDS[-1][0]}–{GBANDS[-1][1]} уровнях: {len(bands[-1][2])}. Выберите диапазон или найдите предмет – покажем, кто его роняет и с каким шансом.",
        filters=[(x, y, False) for x, y in bf] + [("Где выбить предмет", "/drop/items/", False)],
        groups=[{"title": None, "count": "Уровни", "id": "b", "html": table(["Диапазон", "Монстров>"], [[f'<a class="it" href="/drop/{a}-{b}/"><span>Монстры {a}–{b} уровня</span></a>', str(len(l))] for a, b, l in bands])}],
        filter_box=False, art="monsters" if ARTS.get("monsters") else None, **gw_common(section="drop", wsec="drop"))
@@ -989,12 +1081,18 @@ for iid, src in sorted(GW_ITEM.items(), key=lambda kv: gw_iname(kv[0])):
     cdesc = CNAME[iid][2] if iid in CNAME and not i else ""
     kind = item_kind(i).lower() if i else "предмет"
     bc = [("Goldwar", "/"), ("Где выбить предмет", "/drop/items/"), (nm, None)]
-    intro = f"{nm} на сервере Goldwar падает с {len(src)} {plural(len(src),'источника','источников','источников')}. Лучший шанс – {pct(top[1][3])} у {GW[top[0]]['name']} ({GW[top[0]]['level']} ур.)."
+    _tn = gw_dname(top[0]); _tp = gw_place(top[0])
+    _ns = sum(1 for x in src if x[2]); _nb = sum(1 for x in src if GW[x[0]]["type"] != "Monster")
+    intro = f"{nm} на Goldwar падает с {len(src)} {plural(len(src),'источника','источников','источников')}" + (f", из них {_nb} {plural(_nb,'босс','босса','боссов')}" if _nb and _nb < len(src) else (" – только с боссов" if _nb else "")) + "."
+    intro += f' Лучший шанс – {pct(top[1][3])} у <a href="{gw_url(top[0])}">{esc(_tn)}</a> ({GW[top[0]]["level"]} ур.' + (f", {esc(_tp)}" if _tp else "") + ")."
+    if _ns: intro += f" В спойле – у {_ns}."
+    if iid == 19909: intro += " Открывается Золотым ключом, один ключ – один сундук."
+    if iid == 8056: intro += " Ключ открывает Золотой сундук, один ключ – один сундук."
     if not i: kind = gw_ckind(iid)
     tnm = nm if _inames[nm] < 2 else f"{nm} ({kind})" if i else f"{nm}, {gw_eff(iid)}" if gw_eff(iid) else f"{nm} #{iid}"
     if _inames[nm] > 1 and sum(1 for x in GW_ITEM if gw_iname(x) == nm and ITEM.get(x) and item_kind(ITEM[x]).lower() == kind) > 1: tnm = f"{nm} #{iid}"
     render(p, "entry.html", {"title": f"Где выбить {tnm} – дроп Goldwar" if len(tnm) < 36 else f"Где выбить {tnm}"[:70],
-           "description": f"{nm}: {len(src)} {plural(len(src),'источник','источника','источников')} дропа на Goldwar. Лучший шанс {pct(top[1][3])} у {GW[top[0]]['name']}, {GW[top[0]]['level']} ур."[:165]},
+           "description": f"Где выбить {nm} на Goldwar: {len(src)} {plural(len(src),'источник','источника','источников')}, лучший шанс {pct(top[1][3])} у {_tn} ({GW[top[0]]['level']} ур.). " + (f"{gw_ckind(iid).capitalize()} сервера Goldwar, свойства из клиента." if cdesc else "Количество и шансы из файлов сервера.")},
            [bc_ld(bc)], bc=bc, icon=icon(gw_icon(iid)), h1=f"Где выбить {tnm if not i else nm}", sub=(gbadge(i["grade"]) + f" <span>{item_kind(i)}</span>") if i else f"<span>{gw_ckind(iid).capitalize()}</span>",
            intro=intro, sections=[{"id": "src", "title": "Кто роняет", "text": "Шансы из файлов сервера Goldwar.", "html": '<div class="tbl-wrap">' + table(["Источник", "Ур.", "Кол-во>", "Шанс>"], rows) + "</div>"}] + ([{"id": "about", "title": "Свойства предмета", "text": "Описание из клиента Goldwar.", "html": f'<p lang="en">{esc(cdesc)}</p>'}] if cdesc else []),
            faq=None, side=[{"title": "Предмет", "props": ([("Тип", item_kind(i)), ("Грейд", gbadge(i["grade"]))] + item_stats(i)[:6]) if i else [("Тип", gw_ckind(iid).capitalize()), ("ID", str(iid))]}],
@@ -1004,7 +1102,7 @@ for iid, src in sorted(GW_ITEM.items(), key=lambda kv: gw_iname(kv[0])):
 bc = [("Goldwar", "/"), ("Где выбить предмет", None)]
 render("/drop/items/", "list.html", {"title": "Где выбить предмет на Goldwar – дроп с монстров",
        "description": f"{len(irows)} предметов, которые падают с монстров и боссов Goldwar. Для каждого: сколько источников и лучший шанс по файлам сервера."},
-       [bc_ld(bc)], bc=bc, h1="Где выбить предмет", intro=f"{len(irows)} предметов из дропа сервера. Откройте предмет – увидите всех, кто его роняет, с шансами.",
+       [bc_ld(bc)], bc=bc, h1="Где выбить предмет", intro=f"{len(irows)} {plural(len(irows),'предмет','предмета','предметов')}, которые падают с монстров и боссов Goldwar, включая {sum(1 for x in GW_ITEM if x in CNAME and gw_custom_item(x))} предметов сервера: оружие Goldwar, именную бижутерию, короны и сундуки. Откройте предмет – покажем всех, кто его роняет, с количеством и шансом. Адена в списке не показана: она падает почти со всех.",
        filters=None, groups=[{"title": None, "count": f"{len(irows)} предметов", "id": "i", "html": table(["Предмет", "Источников>", "Лучший шанс>"], irows)}],
        filter_box=True, art="items" if ARTS.get("items") else None, **gw_common(section="drop", wsec="items"))
 print("goldwar npcs", len(GW), "items", len(irows), "unknown items", sorted(UNKNOWN_ITEMS))
@@ -1041,13 +1139,25 @@ GW_INDEX = [
     {"title": "Монстры и дроп", "href": "/drop/", "count": str(len(mons)), "desc": "Где фармить на своём уровне и что падает", "icons": pick_icons(lambda i: i.get("etcItemType") == "material", 6)},
     {"title": "Где выбить предмет", "href": "/drop/items/", "count": str(len(irows)), "desc": "Найдите предмет – покажем всех, кто его роняет", "icons": pick_icons(lambda i: i["type"] == "weapon" and i["grade"] == "s", 6)},
 ]
+_keyrb = [g for g in GW.values() if g["type"] == "RaidBoss" and GW_PRIMARY[g["id"]] == g["id"] and any(r[0] == 8056 for r in g["drop"])]
+_gwset = {r[0] for g in GW.values() for r in g["drop"] if gw_is_gwweapon(r[0])}
+_gwsrc = {g["id"] for g in GW.values() if GW_PRIMARY[g["id"]] == g["id"] and g["type"] != "Monster" for r in g["drop"] if r[0] in _gwset}
+_gwmob = {g["id"] for g in GW.values() if GW_PRIMARY[g["id"]] == g["id"] and g["type"] == "Monster" for r in g["drop"] if r[0] in _gwset}
+HOME_FAQ = [
+    ("Какие рейты и хроники на Goldwar?", "Хроники Interlude (C6), рейты x50. Регистрация – на acp.goldwar.net, нужна только почта."),
+    ("Где взять Золотой ключ?", f'С рейд-боссов: ключ есть в дропе у {len(_keyrb)} боссов {min(g["level"] for g in _keyrb)}–{max(g["level"] for g in _keyrb)} уровня, 1–2 шт. с шансом 100%. Список – в разделе <a href="/bosses/">«Рейд-боссы»</a>. Ключ также продаётся за Gold Coins.'),
+    ("С кого падает Золотой сундук?", f'С вампиров {_box[0]["level"]} уровня в локации {gw_where(_box[0]["id"])[0]}: ' + ", ".join(g["name"] for g in _box) + f'. Шанс {pct(next(r[3] for r in _box[0]["drop"] if r[0] == 19909))}, подробности – на странице <a href="/drop/item/19909-golden-box/">Golden Box</a>.'),
+    ("Что такое оружие Goldwar?", f'{len(_gwset)} видов оружия и щитов с особыми свойствами, которых нет в обычном Interlude: больше крита, скорости атаки, HP или урона в PvP. Падает с {len(_gwsrc)} рейд- и эпик-боссов. Список – в разделе <a href="/drop/items/">«Где выбить предмет»</a>.'),
+    ("Как начать играть?", 'Создайте аккаунт на acp.goldwar.net, скачайте клиент в разделе <a href="/files/">«Файлы»</a> и войдите в игру с логином и паролем от аккаунта.'),
+]
 render("/", "home.html", {"title": "Goldwar – сервер Lineage 2 Interlude x50",
        "description": "Goldwar – сервер Lineage 2 Interlude x50 с PvP-концепцией и Золотыми сундуками. Регистрация за минуту, клиент одним архивом, база знаний по игре.",
        "og_title": "Goldwar x50 – Lineage 2 Interlude"},
        [{"@context": "https://schema.org", "@type": "VideoGame", "name": "Goldwar", "url": BASE + "/", "genre": "MMORPG", "gamePlatform": "PC",
-         "description": "Сервер Lineage 2 на хрониках Interlude с рейтами x50.", "inLanguage": ["ru", "en", "es", "el"]},
-        {"@context": "https://schema.org", "@type": "Organization", "name": "Goldwar", "url": BASE + "/", "sameAs": [s["href"] for s in SITE["socials"]]}],
-       section="home", stats=stats, bosses=boss_pick, index=GW_INDEX, coin_icon=icon("etc_coins_gold_i00.png"),
+         "description": "Сервер Lineage 2 на хрониках Interlude с рейтами x50 и системой Золотых сундуков.", "inLanguage": "ru"},
+        {"@context": "https://schema.org", "@type": "Organization", "name": "Goldwar", "url": BASE + "/", "logo": BASE + "/static/media/logo.webp", "sameAs": [s["href"] for s in SITE["socials"]]},
+        faq_ld(faq_plain(HOME_FAQ))],
+       section="home", stats=stats, bosses=boss_pick, home_faq=HOME_FAQ, box_mobs=_box, box_txt=(f"Вампиры {_box[0]['level']} уровня в локации {gw_where(_box[0]['id'])[0]}: {len(_box)} {plural(len(_box),'вид','вида','видов')}, шанс {pct(next(r[3] for r in _box[0]['drop'] if r[0] == 19909))} с каждого." if _box else ""), box_chance=pct(next(r[3] for r in _box[0]["drop"] if r[0] == 19909)) if _box else "", key_n=len(_keyrb), index=GW_INDEX, coin_icon=icon("etc_coins_gold_i00.png"),
        chest_icons=[icon("etc_box_of_adventure_5_i00.png"), icon("etc_key_i00.png"), icon("etc_coins_gold_i00.png")],
        kb_icons={"classes": [CICON[x] for x in (88, 94, 100, 113)], "items": pick_icons(lambda i: i["type"] == "weapon" and i["grade"] == "s")})
 
@@ -1055,13 +1165,25 @@ render("/", "home.html", {"title": "Goldwar – сервер Lineage 2 Interlude
 simple = {
  "/files/": ("Скачать клиент Goldwar", "Полный клиент Interlude одним архивом и порядок установки.",
    "<h2 style='font-size:2rem;margin-bottom:16px'>Установка</h2><ol style='color:var(--text-2);line-height:1.9'><li>Скачайте архив клиента.</li><li>Распакуйте его в папку без кириллицы в пути, например C:\\Games\\Goldwar.</li><li>Запустите system\\l2.exe и войдите с логином и паролем от аккаунта на acp.goldwar.net.</li></ol><p class='muted' style='margin-top:24px'>Ссылку на архив и требования к компьютеру добавит администрация сервера.</p>", True),
- "/support/": ("Поддержка Goldwar", "Вопросы по аккаунту, донату и игре решаются в Telegram и Discord.",
-   "<p style='color:var(--text-2)'>Быстрее всего администрация отвечает в чате Telegram. Для ивентов и спорных ситуаций приложите скриншот.</p><div class='socials' style='margin-top:24px'>" + "".join(f"<a href='{s['href']}' target='_blank' rel='noopener'>{s['icon']}{s['title']}</a>" for s in SITE["socials"]) + "</div>", False),
+ "/support/": ("Поддержка Goldwar", "С аккаунтом, игрой и ивентами Goldwar помогает администрация в Telegram и Discord. Логин, пароль и персонажи – в личном кабинете на acp.goldwar.net.",
+   "<h2 style='font-size:2rem;margin-bottom:16px'>Куда писать</h2>"
+   "<dl class='sup-list' style='display:grid;grid-template-columns:minmax(160px,220px) 1fr;gap:14px 24px;color:var(--text-2);line-height:1.6'>"
+   "<dt><a href='https://t.me/GoldwarChat' target='_blank' rel='noopener'>Чат в Telegram</a></dt><dd>Вопросы администрации и другим игрокам: баги, жалобы, помощь с игрой.</dd>"
+   "<dt><a href='https://t.me/GoldwarChannel' target='_blank' rel='noopener'>Telegram-канал</a></dt><dd>Анонсы сервера: обновления, ивенты, технические работы. Писать сюда нельзя, только читать.</dd>"
+   "<dt><a href='https://discord.gg/QmESSAQJM' target='_blank' rel='noopener'>Discord</a></dt><dd>Сообщество сервера, поиск клана и голосовые каналы.</dd>"
+   "<dt><a href='https://acp.goldwar.net/login/' rel='nofollow'>Личный кабинет</a></dt><dd>Аккаунт, смена пароля, персонажи и магазин.</dd>"
+   "</dl>"
+   "<h2 style='font-size:2rem;margin:40px 0 16px'>Что приложить к обращению</h2>"
+   "<ul style='color:var(--text-2);line-height:1.8'><li>Логин аккаунта или ник персонажа.</li><li>Когда это случилось: дата и примерное время по серверу.</li><li>Скриншот, если вопрос про дроп, ивент или ошибку в игре.</li></ul>"
+   "<p style='color:var(--text-2);margin-top:16px'>Скриншоты для стартового ивента с Goldwar Weapon принимают в <a href='" + SITE["tg_event"] + "' target='_blank' rel='noopener'>Telegram</a> и <a href='" + SITE["ds_event"] + "' target='_blank' rel='noopener'>Discord</a>.</p>"
+   "<div class='socials' style='margin-top:32px'>" + "".join(f"<a href='{s['href']}' target='_blank' rel='noopener'>{s['icon']}{s['title']}</a>" for s in SITE["socials"]) + "</div>", False),
  "/privacy/": ("Политика конфиденциальности", "Текст переносится со старого сайта goldwar.net.", "<p class='muted'>Текст переносится со старого сайта.</p>", True),
  "/terms/": ("Пользовательское соглашение", "Текст переносится со старого сайта goldwar.net.", "<p class='muted'>Текст переносится со старого сайта.</p>", True),
 }
 for p, (h, intro, body, noidx) in simple.items():
-    render(p, "page.html", {"title": f"{h} | Goldwar" if len(h) < 50 else h, "description": f"{h}. {intro}"[:160], "noindex": noidx},
+    _t = {"/support/": "Поддержка Goldwar – Telegram, Discord, личный кабинет"}.get(p, f"{h} | Goldwar" if len(h) < 50 else h)
+    _d = {"/support/": "Куда писать по аккаунту, игре и ивентам Goldwar: чат в Telegram, Discord, личный кабинет acp.goldwar.net. Что приложить к обращению."}.get(p, f"{h}. {intro}")
+    render(p, "page.html", {"title": _t, "description": _d, "noindex": noidx},
            [], section={"/files/": "files", "/support/": "support"}.get(p, ""), h1=h, intro=intro, body=body)
 
 # ================= СТАТИКА =================
@@ -1134,13 +1256,18 @@ with open(f"{OUT}/sitemap.xml", "w") as f:
     for p in sorted(set(PAGES)): f.write(f"<url><loc>{BASE}{p}</loc><lastmod>{TODAY}</lastmod></url>\n")
     f.write("</urlset>\n")
 with open(f"{OUT}/robots.txt", "w") as f:
-    f.write(f"User-agent: *\nAllow: /\nDisallow: /static/search.json\n\nSitemap: {BASE}/sitemap.xml\n")
+    f.write(f"User-agent: *\nAllow: /\nDisallow: /static/search.json\nDisallow: /static/gw-search.json\nDisallow: /static/tip/\n\nSitemap: {BASE}/sitemap.xml\n")
 with open(f"{OUT}/llms.txt", "w") as f:
-    f.write(f"# Goldwar\n\n> Сервер Lineage 2 на хрониках Interlude (C6) с рейтами x50, PvP-концепцией и системой Золотых сундуков. Сайт включает базу знаний по Interlude.\n\n"
-            f"## Разделы\n\n- [База знаний]({BASE}/wiki/): обзор базы\n- [Классы]({BASE}/wiki/classes/): {len(classes)} классов с умениями по уровням\n"
-            f"- [Предметы]({BASE}/wiki/items/weapons/sword/): {fmt(len(PUB))} предметов с дропом, спойлом и крафтом\n- [Монстры]({BASE}/wiki/monsters/): {fmt(len(regular))} монстров по уровням\n"
-            f"- [Рейд-боссы]({BASE}/wiki/raid-bosses/): {len(rbs)} боссов\n- [Зоны охоты]({BASE}/wiki/zones/)\n- [Квесты]({BASE}/wiki/quests/)\n\n"
-            f"## Игра\n\n- Регистрация: https://acp.goldwar.net/register/\n- Файлы: {BASE}/files/\n- Telegram: https://t.me/GoldwarChannel\n")
+    f.write(f"# Goldwar\n\n> Goldwar – сервер Lineage 2 на хрониках Interlude (C6) с рейтами x50. Главная механика – Золотые сундуки: сундук падает с монстров, ключ к нему – с рейд-боссов. "
+            f"Данные о боссах и дропе на сайте взяты из файлов сервера Goldwar.\n\n"
+            f"## Факты\n\n- Хроники: Interlude (C6), рейты x50\n- Золотой ключ: {len(_keyrb)} рейд-боссов {min(g['level'] for g in _keyrb)}–{max(g['level'] for g in _keyrb)} уровня, 1–2 шт., шанс 100%\n"
+            + (f"- Золотой сундук (Golden Box): " + ", ".join(g["name"] for g in _box) + f" ({_box[0]['level']} ур., {gw_where(_box[0]['id'])[0]}), шанс {pct(next(r[3] for r in _box[0]['drop'] if r[0] == 19909))}\n" if _box else "")
+            + f"- Оружие Goldwar: {len(_gwset)} видов, падает с {len(_gwsrc)} рейд- и эпик-боссов\n- Регистрация и личный кабинет: https://acp.goldwar.net/\n\n"
+            f"## Сервер\n\n- [Рейд-боссы]({BASE}/bosses/): уровни, места, свита, дроп с шансами\n- [Эпик-боссы]({BASE}/epic/): Queen Ant, Core, Orfen, Zaken, Baium, Antharas, Valakas\n"
+            f"- [Монстры и дроп]({BASE}/drop/): {len(mons)} монстров по уровням\n- [Где выбить предмет]({BASE}/drop/items/): {len(irows)} предметов и кто их роняет\n"
+            f"- [Поддержка]({BASE}/support/): Telegram, Discord, личный кабинет\n\n"
+            f"## Справочник по Interlude\n\n- [База знаний]({BASE}/wiki/): классы, предметы, монстры, зоны и квесты стандартного Interlude (базовые шансы, не сервера)\n\n"
+            f"## Каналы\n\n" + "".join(f"- {s_['title']}: {s_['href']}\n" for s_ in SITE["socials"]))
 # .htaccess: на тестовом адресе запрет индексации; GW_PROD=1 – боевая сборка для goldwar.net
 _ht = open(os.path.join(HERE, "htaccess.txt")).read()
 if os.environ.get("GW_PROD") != "1": _ht = 'Header set X-Robots-Tag "noindex, nofollow"\n' + _ht

@@ -1,5 +1,7 @@
 User-agent: *
 Allow: /
 Disallow: /static/search.json
+Disallow: /static/gw-search.json
+Disallow: /static/tip/
 
 Sitemap: https://goldwar.net/sitemap.xml

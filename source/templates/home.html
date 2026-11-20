@@ -28,12 +28,12 @@
   </div>
   <div class="chest-copy">
     <h2>Золотой сундук</h2>
-    <p class="chest-lead">Главная механика сервера. Сундук падает с монстров в отдельных локациях, но без ключа он бесполезен.</p>
+    <p class="chest-lead">Главная механика сервера. Сундук выбивают с монстров, ключ – с рейд-боссов. Один ключ открывает один сундук.</p>
     <dl class="chest-rules">
       <dt><img src="/static/i/{{ chest_icons[0] }}" alt="" width="32" height="32" loading="lazy">Где искать</dt>
-      <dd>Монстры в отдельных локациях. Какие именно – подскажет канал сервера, а что ещё с них падает – раздел <a href="/drop/">«Дроп»</a>.</dd>
+      <dd>{% if box_mobs %}{{ box_txt }} Кто именно – на странице <a href="/drop/item/19909-golden-box/">Golden Box</a>.{% else %}Монстры в отдельных локациях, список – в разделе <a href="/drop/">«Дроп»</a>.{% endif %}</dd>
       <dt><img src="/static/i/{{ chest_icons[1] }}" alt="" width="32" height="32" loading="lazy">Чем открыть</dt>
-      <dd>Золотым ключом. Его роняют <a href="/bosses/">рейд-боссы</a>, а кто не хочет ждать босса, покупает ключ за Gold Coins.</dd>
+      <dd>Золотым ключом. Его роняют {{ key_n }} <a href="/bosses/">рейд-боссов</a>, по 1–2 штуки. Кто не хочет ждать босса, покупает ключ за Gold Coins.</dd>
       <dt><img src="/static/i/{{ chest_icons[2] }}" alt="" width="32" height="32" loading="lazy">Что внутри</dt>
       <dd>Содержимое меняется, поэтому сундук на этой неделе и на следующей даёт разное.</dd>
     </dl>
@@ -70,6 +70,13 @@
       {% for b in bosses %}<li><a href="{{ b.url }}"><span class="rl num">{{ b.level }}</span><span class="rn2">{{ b.name }}</span><span class="rw">{{ b.where }}</span></a></li>{% endfor %}
     </ol>
     <a class="link-under" href="/bosses/">Все {{ stats.raid }} рейд-боссов</a>&nbsp;&nbsp;&nbsp;<a class="link-under" href="/epic/">Эпик-боссы</a>
+  </div>
+</section>
+
+<section class="sec home-faq">
+  <div class="wrap" style="max-width:900px;margin-left:max(0px,calc((100% - var(--wrap))/2))">
+    <h2>Коротко о Goldwar</h2>
+    <div class="faq">{% for q in home_faq %}<details{% if loop.first %} open{% endif %}><summary>{{ q[0] }}</summary><p>{{ q[1]|safe }}</p></details>{% endfor %}</div>
   </div>
 </section>
 
