@@ -43,6 +43,8 @@ GW_PROD=1 python build.py    # боевая сборка для goldwar.net
 | Цвета, шрифты, сетка | `source/static/css/site.css` (переменные в `:root`) |
 | Логотип, фоновые картинки, видео | `source/assets/` |
 
+Проверка SEO после правок: `python seoaudit.py` – обходит `dist/` и показывает дубли и длины title/description, битые ссылки, страницы без входящих ссылок и расхождения с sitemap.
+
 Видео главной склеены в бесшовный цикл скриптом `source/loopvid.sh` (нужен ffmpeg).
 
 ## Данные вики
