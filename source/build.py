@@ -1072,7 +1072,9 @@ os.makedirs(f"{OUT}/static/fonts")
 for f in ["prata-cyrillic-400-normal", "prata-latin-400-normal",
           "onest-cyrillic-400-normal", "onest-latin-400-normal", "onest-cyrillic-500-normal", "onest-latin-500-normal", "onest-cyrillic-600-normal", "onest-latin-600-normal"]:
     fam = "prata" if f.startswith("prata") else "onest"
-    shutil.copy(os.path.join(HERE, f"node_modules/@fontsource/{fam}/files/{f}.woff2"), f"{OUT}/static/fonts/")
+    _fp = os.path.join(HERE, "fonts", f"{f}.woff2")
+    if not os.path.exists(_fp): _fp = os.path.join(HERE, f"node_modules/@fontsource/{fam}/files/{f}.woff2")
+    shutil.copy(_fp, f"{OUT}/static/fonts/")
 os.makedirs(f"{OUT}/static/media", exist_ok=True)
 if SITE["has_logo"]:
     im = Image.open(f"{ASSETS}/logoGold.png").convert("RGBA"); im = im.crop(im.getchannel("A").getbbox())
