@@ -51,8 +51,4 @@ GW_PROD=1 python build.py    # боевая сборка для goldwar.net
 
 ## Предпросмотр
 
-Пока сайт не перенесён на goldwar.net, его можно посмотреть:
-- на тестовом хостинге: https://cc209963.tw1.ru
-- на GitHub Pages: https://vaetn.github.io/goldwar-site/
-
-Обе копии закрыты от индексации.
+Пока сайт не перенесён на goldwar.net, его можно посмотреть на GitHub Pages: https://vaetn.github.io/goldwar-site/ (закрыто от индексации). Копия обновляется сама после каждого изменения в репозитории.
