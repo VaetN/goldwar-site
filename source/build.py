@@ -58,6 +58,8 @@ def clip_title(main, brand=" | Goldwar", limit=60):
 
 USED_ICONS = set()
 ICON_OK = set(os.listdir(ICONS))
+CUSTOM_ICONS = os.path.join(HERE, "assets/icons")   # свои иконки сервера (Goldwar Weapon и др.)
+if os.path.isdir(CUSTOM_ICONS): ICON_OK |= set(os.listdir(CUSTOM_ICONS))
 FALLBACK = "etc_question_mark_i00.png" if "etc_question_mark_i00.png" in ICON_OK else "etc_coins_gold_i00.png"
 def icon(f):
     if not f or f not in ICON_OK: f = FALLBACK
@@ -841,6 +843,7 @@ def gw_icon(iid):
     i = gw_i(iid)
     if i: return i.get("iconFile")
     if iid not in CNAME: return None
+    if CNAME[iid][1].lower() == "goldwar": return "goldwar_weapon.png"
     j = _NAMEIDX.get(CNAME[iid][0].lower())
     if j and j.get("iconFile") and "monster" not in j["iconFile"]: return j["iconFile"]
     n = CNAME[iid][0].lower()
@@ -1062,7 +1065,7 @@ for p, (h, intro, body, noidx) in simple.items():
 # ================= СТАТИКА =================
 os.makedirs(f"{OUT}/static/i", exist_ok=True)
 for f in USED_ICONS:
-    im = Image.open(f"{ICONS}/{f}").convert("RGBA")
+    im = Image.open(f"{CUSTOM_ICONS}/{f}" if os.path.exists(f"{CUSTOM_ICONS}/{f}") else f"{ICONS}/{f}").convert("RGBA")
     if im.size[0] <= 32:
         im = im.resize((64, 64), Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=1, percent=60, threshold=2))
     im.save(f"{OUT}/static/i/{f[:-4]}.webp", "WEBP", quality=90, method=6)
