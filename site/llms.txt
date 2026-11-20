@@ -1,0 +1,19 @@
+# Goldwar
+
+> Сервер Lineage 2 на хрониках Interlude (C6) с рейтами x50, PvP-концепцией и системой Золотых сундуков. Сайт включает базу знаний по Interlude.
+
+## Разделы
+
+- [База знаний](https://goldwar.net/wiki/): обзор базы
+- [Классы](https://goldwar.net/wiki/classes/): 89 классов с умениями по уровням
+- [Предметы](https://goldwar.net/wiki/items/weapons/sword/): 5 198 предметов с дропом, спойлом и крафтом
+- [Монстры](https://goldwar.net/wiki/monsters/): 1 687 монстров по уровням
+- [Рейд-боссы](https://goldwar.net/wiki/raid-bosses/): 218 боссов
+- [Зоны охоты](https://goldwar.net/wiki/zones/)
+- [Квесты](https://goldwar.net/wiki/quests/)
+
+## Игра
+
+- Регистрация: https://acp.goldwar.net/register/
+- Файлы: https://goldwar.net/files/
+- Telegram: https://t.me/GoldwarChannel
