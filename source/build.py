@@ -953,7 +953,6 @@ for nid, g in GW.items():
     if g["minions"]:
         secs.append({"id": "minions", "title": "Свита", "text": "Появляется вместе с боссом.",
                      "html": '<div class="chips">' + "".join(f'<span class="chip" style="padding-left:12px">{esc(GW_NAMES.get(m) or NPC.get(m, {}).get("name") or "#"+str(m))} ×{a if a == b else f"{a}–{b}"}</span>' for m, a, b in g["minions"]) + "</div>"})
-    hl = [r for r in gw_highlight(g["drop"] + [(0, 0, 0, 0)][:0]) if r[0] not in (8056, 19909)] or []
     hl = [r for r in sorted([r for r in g["drop"] if r[0] not in (57, 8056, 19909) and gw_value(r[0]) > 0], key=lambda r: (-gw_value(r[0]), -r[3]))][:3]
     best = [gw_iname(r[0]) for r in hl]
     bestc = [f"{gw_iname(r[0])} ({pct(r[3])})" for r in hl]
